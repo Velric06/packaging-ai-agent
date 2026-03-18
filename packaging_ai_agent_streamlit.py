@@ -1,107 +1,131 @@
 import streamlit as st
 
-# Page config
-st.set_page_config(page_title="Production AI Agent", layout="wide")
+st.set_page_config(layout="wide")
 
-# Styling (Minimal + Calm UI)
+# ---------- STYLE ----------
 st.markdown("""
 <style>
-body {
-    background-color: #0f172a;
-}
-.block-container {
-    padding-top: 2rem;
-}
-.stNumberInput, .stSelectbox {
-    background-color: #1e293b;
-    border-radius: 10px;
-}
-.stMetric {
-    background-color: #1e293b;
-    padding: 15px;
-    border-radius: 12px;
-}
-h1, h2, h3 {
-    color: #e2e8f0;
-}
+body {background:#0f172a;}
+.card {background:#1e293b;padding:20px;border-radius:14px;}
+h1,h2,h3{color:#e2e8f0;}
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.title("📦 Production Planning Agent")
-st.caption("AI-powered Non Woven Bag Manufacturing System")
+st.title("📦 Bag Costing Calculator")
 
-# Layout
-col1, col2 = st.columns(2)
+tab1, tab2 = st.tabs(["Calculator", "Velric Says:"])
 
-# INPUT SECTION
-with col1:
-    st.subheader("🧾 Bag Inputs")
-    fabric_gsm = st.number_input("Fabric GSM", value=80.0)
-    loop_gsm = st.number_input("Loop GSM", value=80.0)
-    height = st.number_input("Height (inch)", value=10.0)
-    width = st.number_input("Width (inch)", value=10.0)
-    gusset = st.number_input("Gusset (inch)", value=4.0)
-    loop_height = st.number_input("Loop Height (inch)", value=15.0)
+with tab1:
 
-with col2:
-    st.subheader("🎨 Printing Inputs")
-    colors = st.selectbox("Flexo Colors", [0,1,2,3,4])
-    ink_type = st.selectbox("Ink Type", ["Normal", "Gold", "Silver"])
-    setoff = st.number_input("Set-off", value=1.38)
-    fabric_rate = st.number_input("Fabric Cost ₹/kg", value=120.0)
+    col1, col2 = st.columns([1.1,1])
 
-# Divider
-st.markdown("---")
+    with col1:
 
-# CALCULATIONS
-def inch_to_meter(x):
-    return x * 0.0254
+        st.subheader("🧾 BAG")
 
-area = (2 * height * width) + (2 * gusset * height)
-area_m2 = (2 * inch_to_meter(height) * inch_to_meter(width)) + (2 * inch_to_meter(gusset) * inch_to_meter(height))
+        c1,c2,c3 = st.columns(3)
+        width = c1.number_input("Width (in)", value=8.0)
+        height = c2.number_input("Height (in)", value=6.0)
+        gusset = c3.number_input("Gusset (in)", value=6.0)
 
-fabric_weight = fabric_gsm * area_m2
+        fabric_gsm = st.number_input("Fabric GSM", value=68.0)
+        moq = st.number_input("MOQ", value=10000)
 
-loop_width = 2
-loop_area = inch_to_meter(loop_width) * inch_to_meter(loop_height) * 2
-loop_weight = loop_area * loop_gsm
+        st.subheader("🎨 PRINT")
 
-grams_per_bag = (fabric_weight + loop_weight) * 1000
-pieces_per_kg = 1000 / grams_per_bag if grams_per_bag else 0
+        color_map = {
+            "Plain":0,
+            "1 Color":25,
+            "2 Color":30,
+            "3 Color":35,
+            "4 Color":40
+        }
 
-printing_cost_map = {0:0,1:6,2:9,3:12,4:15}
-printing_cost = printing_cost_map.get(colors,0)
+        color_choice = st.selectbox("Colors", list(color_map.keys()))
+        printing = color_map[color_choice]
 
-if ink_type in ["Gold","Silver"]:
-    printing_cost += 5
+        gold = st.toggle("Gold/Silver (+5)", True)
 
-bag_cost_per_kg = fabric_rate + printing_cost
-rate_per_bag = (grams_per_bag/1000) * bag_cost_per_kg
+        setoff = st.number_input("Set-off ₹", value=220.0)
+        fabric_rate = st.number_input("Fabric ₹/kg", value=130.0)
 
-roll_width = width + gusset + 1
-cylinder_size = round(height + 4)
+        st.subheader("🔁 LOOP")
 
-# OUTPUT SECTION
-st.subheader("📊 Production Output")
+        l1,l2,l3 = st.columns(3)
+        loop_width = l1.number_input("Width", value=2.0)
+        loop_height = l2.number_input("Height", value=15.0)
+        loop_gsm = l3.number_input("Loop GSM", value=80.0)
 
-col3, col4, col5 = st.columns(3)
+    # ---------- CALCULATIONS ----------
 
-col3.metric("Grams / Bag", f"{grams_per_bag:.2f} g")
-col4.metric("Rate / Bag", f"₹ {rate_per_bag:.2f}")
-col5.metric("Pieces / KG", f"{pieces_per_kg:.1f}")
+    # Convert inch to mm
+    width_mm = width * 25.4
+    height_mm = height * 25.4
+    gusset_mm = gusset * 25.4
 
-col6, col7 = st.columns(2)
-col6.metric("Cylinder Size", f"{cylinder_size}")
-col7.metric("Roll Width", f"{roll_width:.2f} inch")
+    # Fabric grams (exact structure)
+    fabric_grams = (width_mm * height_mm * fabric_gsm) / 1000000
 
-# AI Insight Box
-st.markdown("---")
-st.subheader("🧠 AI Insight")
+    # Loop grams
+    loop_grams = ((loop_width*25.4 * loop_height*25.4 * loop_gsm) / 1000000) * 2
 
-if grams_per_bag > 40:
-    st.info("High weight detected. Consider reducing GSM to optimize cost.")
-elif grams_per_bag < 25:
-    st.success("Optimized lightweight bag. Good for cost efficiency.")
-else:
-    st.write("Balanced configuration. Suitable for standard production.")
+    grams_per_bag = fabric_grams + loop_grams
+
+    # Total weight
+    total_weight = (grams_per_bag * moq) / 1000
+
+    # Printing cost
+    if color_choice != "Plain" and gold:
+        printing += 5
+
+    # Bill
+    bill = (fabric_rate + printing) * total_weight + setoff
+
+    # Rate per bag
+    rate_per_bag = bill / moq
+
+    # Rate per kg
+    rate_per_kg = bill / total_weight
+
+    # GST
+    gst_rate = rate_per_bag * 1.18
+
+    # Roll width
+    roll_width = (width_mm + gusset_mm) / 25.4
+
+    # Cylinder
+    cylinder = height_mm / 25.4
+
+    # ---------- OUTPUT ----------
+    with col2:
+
+        st.subheader("📊 OUTPUT")
+
+        c1,c2 = st.columns(2)
+        c1.metric("Grams / Bag", f"{grams_per_bag:.3f}")
+        c2.metric("Total Weight", f"{total_weight:.2f} kg")
+
+        c3,c4 = st.columns(2)
+        c3.metric("Roll Width", f"{roll_width:.2f} in")
+        c4.metric("Cylinder", f"{cylinder:.2f} in")
+
+        st.markdown("---")
+
+        c5,c6,c7 = st.columns(3)
+        c5.metric("Rate / Bag", f"₹ {rate_per_bag:.2f}")
+        c6.metric("Incl GST", f"₹ {gst_rate:.2f}")
+        c7.metric("Rate / KG", f"₹ {rate_per_kg:.2f}")
+
+with tab2:
+
+    st.subheader("🧠 Velric Says:")
+
+    if grams_per_bag > 18:
+        st.warning("Weight is high. Reduce GSM to optimize cost.")
+    else:
+        st.success("Optimized bag weight.")
+
+    if printing > 30:
+        st.info("Printing cost is high. Reduce colors if possible.")
+
+    st.write("This will evolve into full AI production planning.")
